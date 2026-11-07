@@ -1,0 +1,203 @@
+import os
+import streamlit as st
+from google import genai
+from json_repair import repair_json
+import json
+import re
+
+# Page Configuration
+st.set_page_config(
+    page_title="CBSE Q IX to XII",
+    page_icon="📚",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Initialize Gemini Client securely using Streamlit Secrets
+api_key = None
+if "GEMINI_API_KEY" in st.secrets:
+    api_key = st.secrets["GEMINI_API_KEY"]
+elif os.environ.get("GEMINI_API_KEY"):
+    api_key = os.environ.get("GEMINI_API_KEY")
+
+client = None
+if api_key:
+    try:
+        client = genai.Client(api_key=api_key)
+    except Exception as e:
+        st.error(f"Failed to initialize Gemini Client: {e}")
+
+# Sidebar - CBSE Configuration & Owner Info
+with st.sidebar:
+    st.title("📚 CBSE Q IX to XII")
+    st.markdown("---")
+    st.markdown("### ⚙️ Question Paper Setup")
+    
+    # Configuration Options
+    selected_class = st.selectbox("Select Class", ["Class IX", "Class X", "Class XI", "Class XII"])
+    selected_subject = st.selectbox("Select Subject", ["Maths", "Physics", "Chemistry", "Biology"])
+    chapter_name = st.text_input("Enter Chapter Name", placeholder="e.g., Light - Reflection and Refraction")
+    
+    selected_marks = st.selectbox("Marks per Question", [1, 2, 3, 4, 5])
+    selected_difficulty = st.selectbox("Difficulty Level", ["Easy", "Hard", "Extra Hard", "Tricky", "Analytical"])
+    
+    batch_size = st.slider("Questions per batch:", min_value=5, max_value=20, value=5, step=5)
+    
+    st.markdown("---")
+    # Owner Badge
+    st.markdown(
+        f"<div style='text-align: center; color: #64748b; font-size: 0.85rem; padding: 10px; background: #f1f5f9; border-radius: 8px;'>"
+        f"<b>Owner:</b> NilanjanC<br>Powered by Gemini 3.5 Flash-Lite"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+
+# Main Application Header
+st.title("CBSE Q IX to XII - AI Question Bank")
+st.markdown("Generate custom CBSE-aligned NCERT practice questions with 3 options, hints, and detailed explanations.")
+
+# Initialize session state for tracking questions and progress
+if "asked_questions" not in st.session_state:
+    st.session_state["asked_questions"] = []
+if "quiz_data" not in st.session_state:
+    st.session_state["quiz_data"] = None
+
+def generate_cbse_quiz_batch():
+    if not client:
+        st.error("Gemini API key is missing! Please configure your secrets.toml.")
+        return False
+    if not chapter_name.strip():
+        st.warning("Please enter a chapter name in the sidebar before generating questions.")
+        return False
+        
+    with st.spinner(f"Generating {batch_size} CBSE-aligned questions for {chapter_name}..."):
+        try:
+            asked_list = st.session_state.get("asked_questions", [])
+            excluded_text = "\n".join([f"- {q}" for q in asked_list]) if asked_list else "None yet."
+            
+            prompt = f"""You are an expert CBSE curriculum question creator and examiner.
+Generate exactly {batch_size} high-quality multiple-choice questions for:
+- Class: {selected_class}
+- Subject: {selected_subject}
+- Chapter: {chapter_name}
+- Marks Weightage: {selected_marks} Mark(s) per question
+- Difficulty: {selected_difficulty}
+- Guidelines: Strictly follow NCERT guidelines and CBSE exam patterns.
+
+CRITICAL RULES:
+1. Provide exactly 3 answer options (A, B, C) for each question.
+2. Do NOT repeat or include any of these previously asked questions:
+{excluded_text}
+3. Return the output STRICTLY as a valid JSON array of objects with no markdown formatting outside it. Format:
+[
+  {{
+    "question": "Question statement here",
+    "options": ["A) ...", "B) ...", "C) ..."],
+    "answer": "A",
+    "hint": "Helpful clue without giving away the direct answer",
+    "explanation": "Step-by-step CBSE-style solution explanation"
+  }}
+]"""
+
+            response = client.models.generate_content(
+                model='gemini-3.5-flash-lite',
+                contents=prompt,
+            )
+            
+            response_text = response.text
+            repaired_json_str = repair_json(response_text, return_objects=False)
+            quiz_json = json.loads(repaired_json_str)
+            
+            for q in quiz_json:
+                st.session_state["asked_questions"].append(q["question"])
+
+            st.session_state["quiz_data"] = quiz_json
+            st.session_state["quiz_submitted"] = False
+            st.session_state["user_answers"] = {}
+            return True
+        except Exception as e:
+            st.error(f"Error generating questions: {e}")
+            with st.expander("Debug Raw AI Response"):
+                st.text(response_text if 'response_text' in locals() else "No response generated")
+            return False
+
+# Action buttons & Workspace
+if not st.session_state.get("quiz_data"):
+    if st.button("🚀 Generate CBSE Practice Quiz", type="primary", use_container_width=True):
+        success = generate_cbse_quiz_batch()
+        if success:
+        
+            st.rerun()
+else:
+    quiz_data = st.session_state["quiz_data"]
+    st.markdown(f"### 📝 Practice Quiz: {chapter_name} ({selected_class} - {selected_subject})")
+    st.info(f"Difficulty: **{selected_difficulty}** | Marks per Question: **{selected_marks}** | Total Questions in Batch: **{len(quiz_data)}**")
+    
+    with st.form("cbse_quiz_form"):
+        user_answers = {}
+        for idx, q in enumerate(quiz_data):
+            st.markdown(f"#### Q{idx + 1}: {q['question']}")
+            
+            # On-demand Hint Expander
+            with st.expander(f"💡 Show Hint for Q{idx + 1}"):
+                st.write(q['hint'])
+            
+            # 3 answer options radio buttons
+            user_choice = st.radio(
+                f"Choose your answer for Q{idx + 1}:",
+                q['options'],
+                key=f"cbse_q_{idx}_{len(st.session_state['asked_questions'])}_{idx}"
+            )
+            user_answers[idx] = user_choice
+            st.markdown("---")
+        
+        submitted = st.form_submit_button("Submit Answers & Evaluate", type="primary")
+        
+    if submitted:
+        st.session_state["quiz_submitted"] = True
+        st.session_state["user_answers"] = user_answers
+
+    if st.session_state.get("quiz_submitted", False):
+        st.markdown("### 📊 Evaluation & Detailed Solutions")
+        correct_count = 0
+        wrong_count = 0
+        user_answers = st.session_state.get("user_answers", {})
+        
+        for idx, q in enumerate(quiz_data):
+            selected = user_answers.get(idx, "")
+            selected_letter = selected[0].upper() if selected else ""
+            correct_letter = str(q['answer']).strip().upper()
+            
+            is_correct = (selected_letter == correct_letter)
+            if is_correct:
+                correct_count += 1
+            else:
+                wrong_count += 1
+            
+            st.markdown(f"**Q{idx + 1}:** {q['question']}")
+            st.markdown(f"Your Answer: `{selected}`")
+            
+            if is_correct:
+                st.success("✅ Correct Answer!")
+            else:
+                st.error(f"❌ Incorrect. The correct option is **Option {correct_letter}**.")
+            
+            st.info(f"**Explanation:** {q['explanation']}")
+            st.markdown("---")
+        
+        # Scorecard metrics
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric(label="Right Answers", value=correct_count)
+        with col2:
+            st.metric(label="Wrong Answers", value=wrong_count)
+        with col3:
+            total_score = correct_count * selected_marks
+            max_score = len(quiz_data) * selected_marks
+            st.metric(label="Score Earned", value=f"{total_score} / {max_score}")
+        
+        st.markdown("---")
+        if st.button("➡️ Load Next Lot of Questions", type="primary"):
+            success = generate_cbse_quiz_batch()
+            if success:
+                st.rerun()
