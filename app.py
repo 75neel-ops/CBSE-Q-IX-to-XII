@@ -35,8 +35,17 @@ with st.sidebar:
     
     # Configuration Options
     selected_class = st.selectbox("Select Class", ["Class IX", "Class X", "Class XI", "Class XII"])
-    selected_subject = st.selectbox("Select Subject", ["Maths", "Physics", "Chemistry", "Biology"])
-    chapter_name = st.text_input("Enter Chapter Name", placeholder="e.g., Light - Reflection and Refraction")
+    selected_subject = st.selectbox("Select Subject", ["Mathematics", "Physics", "Chemistry", "Biology"])
+    
+    # Conditional Physics sub-options
+    physics_focus = "Standard"
+    if selected_subject == "Physics":
+        physics_focus = st.radio(
+            "Physics Focus Type:",
+            ["Maths of Physics", "Questions without maths"]
+        )
+        
+    chapter_name = st.text_input("Enter Chapter Name", placeholder="e.g., Matrices / Light / Carbon")
     
     selected_marks = st.selectbox("Marks per Question", [1, 2, 3, 4, 5])
     selected_difficulty = st.selectbox("Difficulty Level", ["Easy", "Hard", "Extra Hard", "Tricky", "Analytical"])
@@ -75,11 +84,23 @@ def generate_cbse_quiz_batch():
             asked_list = st.session_state.get("asked_questions", [])
             excluded_text = "\n".join([f"- {q}" for q in asked_list]) if asked_list else "None yet."
             
+            # Tailor subject instruction based on user selection
+            if selected_subject == "Mathematics":
+                subject_prompt_desc = f"Subject: Core CBSE Mathematics (Pure math problems, equations, theorems, and calculations for {selected_class}, Chapter: {chapter_name})."
+            elif selected_subject == "Physics":
+                if physics_focus == "Maths of Physics":
+                    subject_prompt_desc = f"Subject: Physics - Numerical/Mathematical problem-solving involving formulas, calculations, and derivations for Chapter: {chapter_name} ({selected_class})."
+                else:
+                    subject_prompt_desc = f"Subject: Physics - Conceptual and theoretical questions WITHOUT numerical calculations for Chapter: {chapter_name} ({selected_class})."
+            elif selected_subject == "Chemistry":
+                subject_prompt_desc = f"Subject: Chemistry (Physical, Organic, or Inorganic chemistry questions from Chapter: {chapter_name}, {selected_class})."
+            else:
+                subject_prompt_desc = f"Subject: Biology (Theoretical, diagram-based, or conceptual questions from Chapter: {chapter_name}, {selected_class})."
+
             prompt = f"""You are an expert CBSE curriculum question creator and examiner.
 Generate exactly {batch_size} high-quality multiple-choice questions for:
 - Class: {selected_class}
-- Subject: {selected_subject}
-- Chapter: {chapter_name}
+- {subject_prompt_desc}
 - Marks Weightage: {selected_marks} Mark(s) per question
 - Difficulty: {selected_difficulty}
 - Guidelines: Strictly follow NCERT guidelines and CBSE exam patterns.
@@ -122,15 +143,18 @@ CRITICAL RULES:
             return False
 
 # Action buttons & Workspace
+sub_title_info = f"{selected_subject}"
+if selected_subject == "Physics":
+    sub_title_info += f" ({physics_focus})"
+
 if not st.session_state.get("quiz_data"):
     if st.button("🚀 Generate CBSE Practice Quiz", type="primary", use_container_width=True):
         success = generate_cbse_quiz_batch()
         if success:
-        
             st.rerun()
 else:
     quiz_data = st.session_state["quiz_data"]
-    st.markdown(f"### 📝 Practice Quiz: {chapter_name} ({selected_class} - {selected_subject})")
+    st.markdown(f"### 📝 Practice Quiz: {chapter_name} ({selected_class} - {sub_title_info})")
     st.info(f"Difficulty: **{selected_difficulty}** | Marks per Question: **{selected_marks}** | Total Questions in Batch: **{len(quiz_data)}**")
     
     with st.form("cbse_quiz_form"):
