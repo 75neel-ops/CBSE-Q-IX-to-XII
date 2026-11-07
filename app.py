@@ -58,14 +58,20 @@ with st.sidebar:
     selected_class = st.selectbox("Select Class", ["Class IX", "Class X", "Class XI", "Class XII"])
     selected_subject = st.selectbox("Select Subject", ["Mathematics", "Physics", "Chemistry", "Biology"])
     
-    # Conditional Physics sub-options
+    # Conditional subject-specific question type options
     physics_focus = "Standard"
+    chemistry_focus = "Standard"
     if selected_subject == "Physics":
         physics_focus = st.radio(
             "Physics Focus Type:",
             ["Maths of Physics", "Questions without maths"]
         )
-        
+    elif selected_subject == "Chemistry":
+        chemistry_focus = st.radio(
+            "Chemistry Question Type:",
+            ["Maths", "Questions without maths"]
+        )
+
     chapter_options = CHAPTERS_BY_CLASS_SUBJECT.get((selected_class, selected_subject), [])
     chapter_choice = st.selectbox(
         "Choose Chapter",
@@ -129,7 +135,10 @@ def generate_cbse_quiz_batch():
                 else:
                     subject_prompt_desc = f"Subject: Physics - Conceptual and theoretical questions WITHOUT numerical calculations for Chapter: {chapter_name} ({selected_class})."
             elif selected_subject == "Chemistry":
-                subject_prompt_desc = f"Subject: Chemistry (Physical, Organic, or Inorganic chemistry questions from Chapter: {chapter_name}, {selected_class})."
+                if chemistry_focus == "Maths":
+                    subject_prompt_desc = f"Subject: Chemistry calculation and numerical problem-solving, especially physical chemistry where relevant, for Chapter: {chapter_name}, {selected_class}."
+                else:
+                    subject_prompt_desc = f"Subject: Chemistry conceptual and theoretical questions without numerical calculations from Chapter: {chapter_name}, {selected_class}."
             else:
                 subject_prompt_desc = f"Subject: Biology (Theoretical, diagram-based, or conceptual questions from Chapter: {chapter_name}, {selected_class})."
 
@@ -182,6 +191,8 @@ CRITICAL RULES:
 sub_title_info = f"{selected_subject}"
 if selected_subject == "Physics":
     sub_title_info += f" ({physics_focus})"
+elif selected_subject == "Chemistry":
+    sub_title_info += f" ({chemistry_focus})"
 
 if not st.session_state.get("quiz_data"):
     if st.button("🚀 Generate CBSE Practice Quiz", type="primary", use_container_width=True):
