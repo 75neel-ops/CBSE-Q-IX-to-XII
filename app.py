@@ -27,6 +27,27 @@ if api_key:
     except Exception as e:
         st.error(f"Failed to initialize Gemini Client: {e}")
 
+# Chapter/topic lists follow the CBSE curriculum for 2026-27.
+# Classes IX-X use integrated Science; topics are grouped by discipline.
+CHAPTERS_BY_CLASS_SUBJECT = {
+    ("Class IX", "Mathematics"): ["Number System", "Introduction to Polynomials", "Sequences and Progressions", "Exploring Algebraic Identities", "Linear Equations in Two Variables", "Coordinate Geometry", "Introduction to Euclid’s Geometry: Axioms and Postulates", "Lines and Angles", "Triangles – Congruence Theorems", "4-gons (Quadrilaterals)", "Circles", "Area and Perimeter", "Surface Area and Volume", "Statistics", "Introduction to Probability"],
+    ("Class IX", "Physics"): ["Exploration: Entering the World of Secondary Science", "Motion", "Force and Laws of Motion", "Work, Energy and Simple Machines", "Sound", "Earth as a System: Energy, Matter and Life"],
+    ("Class IX", "Chemistry"): ["Exploration: Entering the World of Secondary Science", "Exploring Mixtures and Their Separation", "Structure of an Atom", "Atoms and Molecules", "Earth as a System: Energy, Matter and Life"],
+    ("Class IX", "Biology"): ["Exploration: Entering the World of Secondary Science", "Cell", "Tissues", "Reproduction", "Diversity", "Earth as a System: Energy, Matter and Life"],
+    ("Class X", "Mathematics"): ["Real Numbers", "Polynomials", "Pair of Linear Equations in Two Variables", "Quadratic Equations", "Arithmetic Progressions", "Triangles", "Coordinate Geometry", "Introduction to Trigonometry", "Some Applications of Trigonometry", "Circles", "Areas Related to Circles", "Surface Areas and Volumes", "Statistics", "Probability"],
+    ("Class X", "Physics"): ["Light: Reflection and Refraction", "The Human Eye and the Colourful World", "Electricity", "Magnetic Effects of Electric Current", "Electric Motors, Electromagnetic Induction and Electric Generator (formative)"],
+    ("Class X", "Chemistry"): ["Chemical Reactions and Equations", "Periodic Classification of Elements (formative)", "Acids, Bases and Salts (formative)", "Metals and Non-metals (formative)", "Carbon and its Compounds (formative)"],
+    ("Class X", "Biology"): ["Life Processes", "Control and Co-ordination in Animals and Plants", "Reproduction", "Heredity (formative)", "Evolution (formative)", "Our Environment"],
+    ("Class XI", "Mathematics"): ["Sets", "Relations and Functions", "Trigonometric Functions", "Complex Numbers and Quadratic Equations", "Linear Inequalities", "Permutations and Combinations", "Binomial Theorem", "Sequence and Series", "Straight Lines", "Conic Sections", "Introduction to Three-dimensional Geometry", "Limits and Derivatives", "Statistics", "Probability"],
+    ("Class XI", "Physics"): ["Units and Measurements", "Motion in a Straight Line", "Motion in a Plane", "Laws of Motion", "Work, Energy and Power", "System of Particles and Rotational Motion", "Gravitation", "Mechanical Properties of Solids", "Mechanical Properties of Fluids", "Thermal Properties of Matter", "Thermodynamics", "Kinetic Theory", "Oscillations", "Waves"],
+    ("Class XI", "Chemistry"): ["Some Basic Concepts of Chemistry", "Structure of Atom", "Classification of Elements and Periodicity in Properties", "Chemical Bonding and Molecular Structure", "Chemical Thermodynamics", "Equilibrium", "Redox Reactions", "Organic Chemistry: Some Basic Principles and Techniques", "Hydrocarbons"],
+    ("Class XI", "Biology"): ["The Living World", "Biological Classification", "Plant Kingdom", "Animal Kingdom", "Morphology of Flowering Plants", "Anatomy of Flowering Plants", "Structural Organisation in Animals", "Cell: The Unit of Life", "Biomolecules", "Cell Cycle and Cell Division", "Photosynthesis in Higher Plants", "Respiration in Plants", "Plant Growth and Development", "Breathing and Exchange of Gases", "Body Fluids and Circulation", "Excretory Products and their Elimination", "Locomotion and Movement", "Neural Control and Coordination", "Chemical Coordination and Integration"],
+    ("Class XII", "Mathematics"): ["Relations and Functions", "Inverse Trigonometric Functions", "Matrices", "Determinants", "Continuity and Differentiability", "Applications of Derivatives", "Integrals", "Applications of Integrals", "Differential Equations", "Vector Algebra", "Three-dimensional Geometry", "Linear Programming", "Probability"],
+    ("Class XII", "Physics"): ["Electric Charges and Fields", "Electrostatic Potential and Capacitance", "Current Electricity", "Moving Charges and Magnetism", "Magnetism and Matter", "Electromagnetic Induction", "Alternating Current", "Electromagnetic Waves", "Ray Optics and Optical Instruments", "Wave Optics", "Dual Nature of Radiation and Matter", "Atoms", "Nuclei", "Semiconductor Electronics: Materials, Devices and Simple Circuits"],
+    ("Class XII", "Chemistry"): ["Solutions", "Electrochemistry", "Chemical Kinetics", "d- and f-Block Elements", "Coordination Compounds", "Haloalkanes and Haloarenes", "Alcohols, Phenols and Ethers", "Aldehydes, Ketones and Carboxylic Acids", "Amines", "Biomolecules"],
+    ("Class XII", "Biology"): ["Sexual Reproduction in Flowering Plants", "Human Reproduction", "Reproductive Health", "Principles of Inheritance and Variation", "Molecular Basis of Inheritance", "Evolution", "Human Health and Diseases", "Microbes in Human Welfare", "Biotechnology: Principles and Processes", "Biotechnology and its Applications", "Organisms and Populations", "Ecosystem", "Biodiversity and its Conservation"],
+}
+
 # Sidebar - CBSE Configuration & Owner Info
 with st.sidebar:
     st.title("📚 CBSE Q IX to XII")
@@ -45,7 +66,22 @@ with st.sidebar:
             ["Maths of Physics", "Questions without maths"]
         )
         
-    chapter_name = st.text_input("Enter Chapter Name", placeholder="e.g., Matrices / Light / Carbon")
+    chapter_options = CHAPTERS_BY_CLASS_SUBJECT.get((selected_class, selected_subject), [])
+    chapter_choice = st.selectbox(
+        "Choose Chapter",
+        ["— Select a chapter —", *chapter_options, "Other / enter chapter name"],
+        help=(
+            "For Classes IX and X, CBSE Science is integrated; these lists group its "
+            "chapters by topic. Items marked formative are for practice, not the "
+            "year-end examination."
+        ),
+    )
+    if chapter_choice == "Other / enter chapter name":
+        chapter_name = st.text_input("Enter Chapter Name", placeholder="Type another chapter or topic")
+    elif chapter_choice == "— Select a chapter —":
+        chapter_name = ""
+    else:
+        chapter_name = chapter_choice
     
     selected_marks = st.selectbox("Marks per Question", [1, 2, 3, 4, 5])
     selected_difficulty = st.selectbox("Difficulty Level", ["Easy", "Hard", "Extra Hard", "Tricky", "Analytical"])
